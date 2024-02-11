@@ -144,8 +144,8 @@ void handle_request(struct server_app *app, int client_socket) {
 
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
-    char file_name[] = "index.html";
-    char *file_path = strtok(NULL, " ");
+    char file_name[BUFFER_SIZE];
+    // char *file_path = strtok(NULL, " ");
     char *method = strtok(request, " ");
     if (strcmp(method, "GET") == 0) {
         char *file_path = strtok(NULL, " ");
@@ -159,6 +159,7 @@ void handle_request(struct server_app *app, int client_socket) {
             snprintf(file_name, sizeof(file_name), "%s", file_path);
         }
     }
+    
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -172,6 +173,26 @@ void handle_request(struct server_app *app, int client_socket) {
     } else {
         serve_local_file(client_socket, file_name);
     }
+    // char *method, *path, *protocol;
+    // method = strtok(request, " ");
+    // path = strtok(NULL, " ");
+    // protocol = strtok(NULL, "\r\n"); // Protocol is not used but extracted for completeness
+
+    // if (method && path) {
+    //     // Default to serving index.html for root "/"
+    //     if (strcmp(path, "/") == 0) {
+    //         path = "/index.html";
+    //     }
+
+    //     if (strstr(path, ".ts")) {
+    //         // Proxy request for .ts files
+    //         proxy_remote_file(app, client_socket, path + 1); // +1 to skip the leading '/'
+    //     } else {
+    //         // Serve local files directly
+    //         serve_local_file(client_socket, path + 1); // +1 to skip the leading '/'
+    //     }
+    // }
+
 
     // Memory cleanup
     free(request);
@@ -267,16 +288,32 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
 
     // Connect to remote server
     int remote_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (remote_socket < 0) {
+        perror("Creating socket failed");
+        return;
+    }
     struct sockaddr_in remote_addr;
     memset(&remote_addr, 0, sizeof(remote_addr));
     remote_addr.sin_family = AF_INET;
+    remote_addr.sin_addr.s_addr = inet_addr(app->remote_host);
     remote_addr.sin_port = htons(app->remote_port);
-    inet_pton(AF_INET, app->remote_host, &remote_addr.sin_addr);
+    // inet_pton(AF_INET, app->remote_host, &remote_addr.sin_addr);
+    if (inet_pton(AF_INET, app->remote_host, &remote_addr.sin_addr) <= 0) {
+        perror("Invalid remote IP address");
+        close(remote_socket);
+        return;
+    }
+
 
     // Error handle
     if (connect(remote_socket, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0) {
         perror("Connection fail");
-        char *response = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
+        // char *response = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
+        char response[] = 
+            "HTTP/1.1 502 Bad Gateway\r\n"
+            "Content-Type: text/html\r\n"
+            "\r\n"
+            "<html><body><h1>502 Bad Gateway</h1></body></html>";
         send(client_socket, response, strlen(response), 0);
         return;
     }
