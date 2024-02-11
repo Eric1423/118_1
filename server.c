@@ -145,6 +145,19 @@ void handle_request(struct server_app *app, int client_socket) {
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
     char file_name[] = "index.html";
+    char *method = strtok(request, " ");
+    if (strcmp(method, "GET") == 0) {
+        char *file_path = strtok(NULL, " ");
+        if (strcmp(file_path, "/") == 0) {
+            strcpy(file_name, "index.html"); 
+        } else {
+            strncpy(file_name, file_path + 1, sizeof(file_name) - 1);
+            file_name[sizeof(file_name) - 1] = '\0';
+        }
+    }
+
+    // Memory cleanup
+    free(request);
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -167,13 +180,61 @@ void serve_local_file(int client_socket, const char *path) {
     // (When the requested file does not exist):
     // * Generate a correct response
 
-    char response[] = "HTTP/1.0 200 OK\r\n"
-                      "Content-Type: text/plain; charset=UTF-8\r\n"
-                      "Content-Length: 15\r\n"
-                      "\r\n"
-                      "Sample response";
+    // Open the requested file
+    FILE *file = fopen(path, "rb");
+    // If the file exists
+    if (file) {
+        // Find the content length
+        fseek(file, 0, SEEK_END);
+        long c_length = ftell(file);
+        rewind(file);
 
-    send(client_socket, response, strlen(response), 0);
+        // Default content type to binary
+        const char *c_type = "application/octet-stream"; 
+        // Determine type extension
+        if (strstr(path, ".html")) {
+            c_type = "text/html; charset=UTF-8";
+        } else if (strstr(path, ".txt")) {
+            c_type = "text/plain; charset=UTF-8";
+        } else if (strstr(path, ".jpg")) {
+            c_type = "image/jpeg";
+        }
+
+        // HTTP header
+        char header[BUFFER_SIZE];
+        sprintf(header, 
+            "HTTP/1.0 200 OK\r\n"
+            "Content-Type: %s\r\n"
+            "Content-Length: %ld\r\n"
+            "\r\n", 
+            c_type, c_length);
+        send(client_socket, header, strlen(header), 0);
+
+        // Send content
+        char *buffer = malloc(BUFFER_SIZE);
+        size_t bytes_read;
+        while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+            send(client_socket, buffer, bytes_read, 0);
+        }
+        free(buffer);
+        fclose(file);
+    } else {
+        // File not found
+        char response[] = 
+            "HTTP/1.0 404 Not Found\r\n"
+            "Content-Type: text/html\r\n"
+            "\r\n"
+            "<html><body><h1>404 Not Found</h1></body></html>";
+        send(client_socket, response, strlen(response), 0);
+    }
+
+    // char response[] = "HTTP/1.0 200 OK\r\n"
+    //                   "Content-Type: text/plain; charset=UTF-8\r\n"
+    //                   "Content-Length: 15\r\n"
+    //                   "\r\n"
+    //                   "Sample response";
+
+    // send(client_socket, response, strlen(response), 0);
 }
 
 void proxy_remote_file(struct server_app *app, int client_socket, const char *request) {
