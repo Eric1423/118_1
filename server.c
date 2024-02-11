@@ -207,6 +207,10 @@ void serve_local_file(int client_socket, const char *path) {
             c_type = "text/plain; charset=UTF-8";
         } else if (strstr(path, ".jpg")) {
             c_type = "image/jpeg";
+        } else if (strstr(path, ".m3u8")) {
+            c_type = "application/vnd.apple.mpegurl";
+        } else if (strstr(path, ".ts")) {
+            c_type = "video/MP2T";
         }
 
         // HTTP header
@@ -221,11 +225,13 @@ void serve_local_file(int client_socket, const char *path) {
 
         // Send content
         char *buffer = malloc(BUFFER_SIZE);
-        size_t bytes_read;
-        while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
-            send(client_socket, buffer, bytes_read, 0);
+        if (buffer) {
+            size_t bytes_read;
+            while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+                send(client_socket, buffer, bytes_read, 0);
+            }
+            free(buffer);
         }
-        free(buffer);
         fclose(file);
     } else {
         // File not found
@@ -269,6 +275,7 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
 
     // Error handle
     if (connect(remote_socket, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0) {
+        perror("Connection fail");
         char *response = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
         send(client_socket, response, strlen(response), 0);
         return;
@@ -276,8 +283,7 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
 
     // Forward original request to the remote server
     char proxy_request[BUFFER_SIZE];
-    snprintf(proxy_request, 
-        sizeof(proxy_request), 
+    snprintf(proxy_request, sizeof(proxy_request), 
         "GET /%s HTTP/1.1\r\n"
         "Host: %s\r\n"
         "Connection: close\r\n"
