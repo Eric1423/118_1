@@ -145,27 +145,36 @@ void handle_request(struct server_app *app, int client_socket) {
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
     char file_name[] = "index.html";
+    char *file_path = strtok(NULL, " ");
     char *method = strtok(request, " ");
     if (strcmp(method, "GET") == 0) {
         char *file_path = strtok(NULL, " ");
         if (strcmp(file_path, "/") == 0) {
             strcpy(file_name, "index.html"); 
         } else {
-            strncpy(file_name, file_path + 1, sizeof(file_name) - 1);
-            file_name[sizeof(file_name) - 1] = '\0';
+            // if start with leading '/'
+            if (file_path[0] == '/') {
+                file_path++;
+            }
+            snprintf(file_name, sizeof(file_name), "%s", file_path);
         }
     }
-
-    // Memory cleanup
-    free(request);
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
     // if (need_proxy(...)) {
     //    proxy_remote_file(app, client_socket, file_name);
     // } else {
-    serve_local_file(client_socket, file_name);
+    // serve_local_file(client_socket, file_name);
     //}
+    if (strstr(file_name, ".ts")) {
+        proxy_remote_file(app, client_socket, file_name);
+    } else {
+        serve_local_file(client_socket, file_name);
+    }
+
+    // Memory cleanup
+    free(request);
 }
 
 void serve_local_file(int client_socket, const char *path) {
