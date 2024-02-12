@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <ctype.h>
 
 /**
  * Project 1 starter code
