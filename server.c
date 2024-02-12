@@ -179,6 +179,7 @@ void handle_request(struct server_app *app, int client_socket)
 
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
+
     char file_name[BUFFER_SIZE];
     // char *file_path = strtok(NULL, " ");
     char *method = strtok(request, " ");
@@ -213,11 +214,11 @@ void handle_request(struct server_app *app, int client_socket)
 
     if (strstr(decoded_file_name, ".ts"))
     {
-        proxy_remote_file(app, client_socket, file_name);
+        proxy_remote_file(app, client_socket, decoded_file_name);
     }
     else
     {
-        serve_local_file(client_socket, file_name);
+        serve_local_file(client_socket, decoded_file_name);
     }
     // char *method, *path, *protocol;
     // method = strtok(request, " ");
