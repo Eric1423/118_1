@@ -210,7 +210,8 @@ void handle_request(struct server_app *app, int client_socket)
 
     char decoded_file_name[BUFFER_SIZE];
     url_decode(decoded_file_name, file_name); // Decode file_name into decoded_file_name
-    if (strstr(file_name, ".ts"))
+
+    if (strstr(decoded_file_name, ".ts"))
     {
         proxy_remote_file(app, client_socket, file_name);
     }
