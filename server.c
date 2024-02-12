@@ -39,6 +39,7 @@ void parse_args(int argc, char *argv[], struct server_app *app);
 void handle_request(struct server_app *app, int client_socket);
 void serve_local_file(int client_socket, const char *path);
 void proxy_remote_file(struct server_app *app, int client_socket, const char *path);
+void url_decode(char *dst, const char *src);
 
 // The main function is provided and no change is needed
 int main(int argc, char *argv[])
@@ -135,40 +136,24 @@ void parse_args(int argc, char *argv[], struct server_app *app)
 
 void url_decode(char *dst, const char *src)
 {
-    char a, b;
     while (*src)
     {
-        if ((*src == '%') &&
-            ((a = src[1]) && (b = src[2])) &&
-            (isxdigit(a) && isxdigit(b)))
-        {
-            if (a >= 'a')
-                a -= 'a' - 'A';
-            if (a >= 'A')
-                a -= ('A' - 10);
-            else
-                a -= '0';
-            if (b >= 'a')
-                b -= 'a' - 'A';
-            if (b >= 'A')
-                b -= ('A' - 10);
-            else
-                b -= '0';
-
-            *dst++ = 16 * a + b;
-            src += 3;
-        }
-        else if (*src == '+')
+        if (*src == '%' && *(src + 1) == '2' && *(src + 2) == '0')
         {
             *dst++ = ' ';
-            src++;
+            src += 3;
+        }
+        else if (*src == '%' && *(src + 1) == '2' && *(src + 2) == '5')
+        {
+            *dst++ = '%';
+            src += 3;
         }
         else
         {
             *dst++ = *src++;
         }
     }
-    *dst++ = '\0';
+    *dst = '\0'; // Null-terminate the destination
 }
 
 void handle_request(struct server_app *app, int client_socket)
