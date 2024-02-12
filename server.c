@@ -16,7 +16,7 @@
 
 #define BUFFER_SIZE 1024
 #define DEFAULT_SERVER_PORT 8081
-#define DEFAULT_REMOTE_HOST "131.179.176.34"
+#define DEFAULT_REMOTE_HOST "131.179.176.34" // change to "127.0.0.1 for local"
 #define DEFAULT_REMOTE_PORT 5001
 
 struct server_app {
@@ -286,37 +286,36 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
     // char response[] = "HTTP/1.0 501 Not Implemented\r\n\r\n";
     // send(client_socket, response, strlen(response), 0);
 
-    // Connect to remote server
+   // Connect to remote server
     int remote_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (remote_socket < 0) {
         perror("Creating socket failed");
         return;
     }
+    printf("Socket created successfully\n");
+
     struct sockaddr_in remote_addr;
     memset(&remote_addr, 0, sizeof(remote_addr));
     remote_addr.sin_family = AF_INET;
     remote_addr.sin_addr.s_addr = inet_addr(app->remote_host);
     remote_addr.sin_port = htons(app->remote_port);
-    // inet_pton(AF_INET, app->remote_host, &remote_addr.sin_addr);
+
     if (inet_pton(AF_INET, app->remote_host, &remote_addr.sin_addr) <= 0) {
         perror("Invalid remote IP address");
         close(remote_socket);
         return;
     }
+    printf("Remote address set successfully\n");
 
-
-    // Error handle
+    // Establish connection
     if (connect(remote_socket, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0) {
         perror("Connection fail");
-        // char *response = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
-        char response[] = 
-            "HTTP/1.1 502 Bad Gateway\r\n"
-            "Content-Type: text/html\r\n"
-            "\r\n"
-            "<html><body><h1>502 Bad Gateway</h1></body></html>";
-        send(client_socket, response, strlen(response), 0);
+        close(remote_socket);
+        // Print additional diagnostic information
+        fprintf(stderr, "Failed to connect to remote server %s:%d\n", app->remote_host, app->remote_port);
         return;
     }
+    printf("Connected to remote server successfully\n");
 
     // Forward original request to the remote server
     char proxy_request[BUFFER_SIZE];
@@ -326,7 +325,10 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
         "Connection: close\r\n"
         "\r\n", 
         request, app->remote_host);
+    printf("Proxy request:\n%s\n", proxy_request);
+
     send(remote_socket, proxy_request, strlen(proxy_request), 0);
+    printf("Request sent to remote server successfully\n");
 
     // Pass the response from remote server back
     char buffer[BUFFER_SIZE];
@@ -334,8 +336,10 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
     while ((bytes_read = recv(remote_socket, buffer, BUFFER_SIZE, 0)) > 0) {
         send(client_socket, buffer, bytes_read, 0);
     }
+    printf("Response received from remote server and sent to client\n");
 
-    // Close socket
+    // Close sockets
     close(remote_socket);
+    printf("Remote socket closed\n");
 
 }
